@@ -786,3 +786,25 @@ def send_usage_email():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@accounts_bp.route('/accounts/add', methods=['POST'])
+def add_account():
+    data = request.json
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+        
+    twitter_id = str(username)
+    
+    query = '''
+        INSERT INTO users (twitter_id, username, profile_pic, followers, following, rate_limit, likes_limit, comments_limit, retweets_limit, follows_limit, extraction_method)
+        VALUES (%s, %s, 'https://avatar.iran.liara.run/public/boy', 0, 0, 10, 10, 10, 10, 10, 1)
+        RETURNING id
+    '''
+    try:
+        res = run_query(query, (twitter_id, username), fetchone=True)
+        return jsonify({'message': 'Account added successfully', 'id': res[0]}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
