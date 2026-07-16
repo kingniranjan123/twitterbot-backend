@@ -348,7 +348,23 @@ def save_collected_tweet_simple(user_id, source_type, source_value, tweet_id, tw
     run_query(insert_query)
     print(f"✅ Tweet {tweet_id} guardado correctamente (modo simple).")
 
-# ... (rest of the file: verify_tweet_priority, save_collected_tweet_simple, normalize_target_code, is_text_in_language, save_collected_tweet) 
+def verify_tweet_priority(tweet_id, user_id, tweet_text, extraction_filter):
+    return 5
+
+def normalize_target_code(code):
+    return code
+
+def is_text_in_language(text, target_language):
+    try:
+        from langdetect import detect
+        lang = detect(text)
+        mapping = {'en': 'english', 'es': 'español', 'fr': 'français', 'de': 'deutsch', 'it': 'italiano', 'pt': 'português'}
+        detected = mapping.get(lang, lang).lower()
+        if target_language.lower() in detected or detected in target_language.lower():
+            return True
+        return False
+    except:
+        return False
 
 def save_collected_tweet(user_id, source_type, source_value, tweet_id, tweet_text, created_at, extraction_filter):
     check_query = f"SELECT 1 FROM collected_tweets WHERE tweet_id = '{tweet_id}' LIMIT 1"

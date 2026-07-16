@@ -339,8 +339,15 @@ def manual_extract_for_account(twitter_id):
             return jsonify({"error": "Account not found"}), 404
         user_id = user_row[0]
         import threading
+        import asyncio
         stop_event = threading.Event()
-        t = threading.Thread(target=lambda: fetch_tweets_for_single_user(user_id, stop_event), daemon=True)
+        
+        def run_extract(uid, ev):
+            from app import app
+            with app.app_context():
+                asyncio.run(fetch_tweets_for_single_user(uid, ev))
+                
+        t = threading.Thread(target=lambda: run_extract(user_id, stop_event), daemon=True)
         t.start()
         return jsonify({"message": f"Manual extraction started for @{twitter_id}"}), 200
     except Exception as e:
@@ -353,8 +360,15 @@ def manual_extract_all():
     try:
         from services.fetch_tweets import fetch_tweets_for_all_users
         import threading
+        import asyncio
         stop_event = threading.Event()
-        t = threading.Thread(target=lambda: fetch_tweets_for_all_users(stop_event), daemon=True)
+        
+        def run_extract_all(ev):
+            from app import app
+            with app.app_context():
+                asyncio.run(fetch_tweets_for_all_users(ev))
+                
+        t = threading.Thread(target=lambda: run_extract_all(stop_event), daemon=True)
         t.start()
         return jsonify({"message": "Manual extraction started for all active accounts"}), 200
     except Exception as e:
