@@ -801,8 +801,8 @@ def add_account():
     twitter_id = str(username)
     
     query = f'''
-        INSERT INTO users (twitter_id, username, profile_pic, followers, following, rate_limit, likes_limit, comments_limit, retweets_limit, follows_limit, extraction_method)
-        VALUES ('{twitter_id}', '{username}', 'https://avatar.iran.liara.run/public/boy', 0, 0, 10, 10, 10, 10, 10, 1)
+        INSERT INTO users (twitter_id, username, profile_pic, followers, following, rate_limit, likes_limit, comments_limit, retweets_limit, follows_limit, extraction_method, account_status)
+        VALUES ('{twitter_id}', '{username}', 'https://avatar.iran.liara.run/public/boy', 0, 0, 10, 10, 10, 10, 10, 1, 'active')
         RETURNING id
     '''
     try:
@@ -810,6 +810,79 @@ def add_account():
         return jsonify({'message': 'Account added successfully', 'id': res[0]}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@accounts_bp.route("/accounts/held", methods=["GET"])
+def get_held_accounts():
+    """Returns all accounts in HELD state (consecutive_failures >= 4)."""
+    rows = run_query(
+        "SELECT id, twitter_id, username, profile_pic, followers, consecutive_failures, account_status, session "
+        "FROM users WHERE account_status = 'held' ORDER BY username"
+    )
+    if not rows:
+        return jsonify([]), 200
+    result = [{
+        "id": r[0], "twitter_id": r[1], "username": r[2],
+        "profile_pic": r[3], "followers": r[4],
+        "consecutive_failures": r[5], "account_status": r[6],
+        "has_session": bool(r[7])
+    } for r in rows]
+    return jsonify(result), 200
+
+
+@accounts_bp.route("/accounts/<string:twitter_id>/status", methods=["PATCH"])
+def set_account_status(twitter_id):
+    """Set account_status: active | paused | held."""
+    data = request.json
+    new_status = data.get("status", "").lower()
+    if new_status not in ["active", "paused", "held"]:
+        return jsonify({"error": "Invalid status. Use: active, paused, held"}), 400
+    try:
+        run_query(f"UPDATE users SET account_status = '{new_status}' WHERE twitter_id = '{twitter_id}'")
+        if new_status == "active":
+            run_query(f"UPDATE users SET consecutive_failures = 0 WHERE twitter_id = '{twitter_id}'")
+        return jsonify({"message": f"Account status updated to {new_status}"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@accounts_bp.route("/accounts/<string:twitter_id>/ai-toggle", methods=["PATCH"])
+def toggle_ai(twitter_id):
+    """Toggle the ai_enabled flag for an account."""
+    data = request.json
+    enabled = data.get("ai_enabled")
+    if enabled is None:
+        return jsonify({"error": "ai_enabled boolean required"}), 400
+    val = "TRUE" if enabled else "FALSE"
+    try:
+        run_query(f"UPDATE users SET ai_enabled = {val} WHERE twitter_id = '{twitter_id}'")
+        return jsonify({"message": f"AI {'enabled' if enabled else 'disabled'} for @{twitter_id}"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@accounts_bp.route("/accounts/<string:twitter_id>/posting-settings", methods=["PATCH"])
+def update_posting_settings(twitter_id):
+    """Update posting window, delay, posts_per_day and 2FA secret for an account."""
+    data = request.json
+    fields = []
+    if "post_window_morning" in data:
+        fields.append(f"post_window_morning = '{data['post_window_morning']}'")
+    if "post_window_evening" in data:
+        fields.append(f"post_window_evening = '{data['post_window_evening']}'")
+    if "post_delay_seconds" in data:
+        fields.append(f"post_delay_seconds = {int(data['post_delay_seconds'])}")
+    if "posts_per_day" in data:
+        fields.append(f"posts_per_day = {int(data['posts_per_day'])}")
+    if "twofa_secret" in data:
+        fields.append(f"twofa_secret = '{data['twofa_secret']}'")
+    if not fields:
+        return jsonify({"error": "No settings provided"}), 400
+    try:
+        run_query(f"UPDATE users SET {', '.join(fields)} WHERE twitter_id = '{twitter_id}'")
+        return jsonify({"message": "Posting settings updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @accounts_bp.route("/accounts/check-alive", methods=["POST"])

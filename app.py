@@ -5,6 +5,8 @@ from routes.logs import logs_bp
 from routes.accounts import accounts_bp
 from routes.monitored_users import monitored_bp
 from routes.tweets import tweets_bp
+from routes.scheduler import scheduler_bp
+from routes.api_health import api_health_bp
 from config import Config
 import threading
 import asyncio
@@ -48,8 +50,18 @@ app.register_blueprint(auth_bp, url_prefix="/auth")
 app.register_blueprint(logs_bp, url_prefix="/logs")
 app.register_blueprint(monitored_bp, url_prefix="/api")
 app.register_blueprint(tweets_bp, url_prefix="/tweets")
+app.register_blueprint(scheduler_bp, url_prefix="/api")
+app.register_blueprint(api_health_bp, url_prefix="/api")
 from routes.settings import settings_bp
 app.register_blueprint(settings_bp, url_prefix="/api")
+
+# Start midnight smart scheduler in background
+try:
+    from services.smart_scheduler import start_midnight_scheduler
+    start_midnight_scheduler()
+    print("[App] Smart Scheduler started.")
+except Exception as e:
+    print(f"[App] Could not start Smart Scheduler: {e}")
 
 @app.route("/")
 def home():

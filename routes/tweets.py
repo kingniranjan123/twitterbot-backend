@@ -201,3 +201,216 @@ def set_provider_source():
         run_query(f"INSERT INTO global_config (id, value) VALUES (1, '{value}')")
 
     return jsonify({"value": value}), 200
+
+
+# ─── Extracted Tweets Management ────────────────────────────────────────────
+
+@tweets_bp.route("/extracted/summary", methods=["GET"])
+def get_extracted_summary():
+    """Returns a per-account summary of extracted tweet counts."""
+    rows = run_query(
+        "SELECT u.id, u.twitter_id, u.username, u.profile_pic, u.account_status, COUNT(ct.id) as tweet_count "
+        "FROM users u LEFT JOIN collected_tweets ct ON ct.user_id = u.id "
+        "GROUP BY u.id, u.twitter_id, u.username, u.profile_pic, u.account_status ORDER BY u.username"
+    )
+    if not rows:
+        return jsonify([]), 200
+    return jsonify([{
+        "user_id": r[0], "twitter_id": r[1], "username": r[2],
+        "profile_pic": r[3], "account_status": r[4], "tweet_count": r[5]
+    } for r in rows]), 200
+
+
+@tweets_bp.route("/extracted/<int:user_id>", methods=["GET"])
+def get_extracted_for_user(user_id):
+    """Get all extracted tweets for a specific user_id with pagination."""
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    rows = run_query(
+        f"SELECT tweet_id, source_value, tweet_text, created_at, priority "
+        f"FROM collected_tweets WHERE user_id = {user_id} "
+        f"ORDER BY created_at DESC LIMIT {limit} OFFSET {offset}"
+    )
+    total_row = run_query(f"SELECT COUNT(*) FROM collected_tweets WHERE user_id = {user_id}", fetchone=True)
+    total = total_row[0] if total_row else 0
+    tweets = []
+    if rows:
+        for r in rows:
+            tweets.append({
+                "tweet_id": r[0], "source_value": r[1],
+                "tweet_text": r[2],
+                "created_at": r[3].isoformat() if r[3] else None,
+                "priority": r[4]
+            })
+    return jsonify({"tweets": tweets, "total": total}), 200
+
+
+@tweets_bp.route("/extracted/<int:user_id>/clear", methods=["DELETE"])
+def clear_extracted_for_user(user_id):
+    """Clear all extracted tweets for a specific account."""
+    try:
+        run_query(f"DELETE FROM collected_tweets WHERE user_id = {user_id}")
+        return jsonify({"message": "All extracted tweets cleared for this account."}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@tweets_bp.route("/extracted/clear-all", methods=["DELETE"])
+def clear_all_extracted():
+    """Clear ALL extracted tweets across all accounts."""
+    try:
+        run_query("DELETE FROM collected_tweets")
+        return jsonify({"message": "All extracted tweets cleared across all accounts."}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@tweets_bp.route("/extracted/<int:user_id>/upload", methods=["POST"])
+def upload_tweets_for_user(user_id):
+    """
+    Upload tweets from Excel/CSV for a specific account.
+    Expected Excel columns: tweet_text (required), source_username (optional), tweet_id (optional)
+    """
+    try:
+        import openpyxl, csv, io
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
+
+        filename = file.filename.lower()
+        tweets_to_insert = []
+
+        if filename.endswith(".xlsx"):
+            wb = openpyxl.load_workbook(file)
+            ws = wb.active
+            headers = [str(cell.value).strip().lower() if cell.value else "" for cell in ws[1]]
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                row_data = dict(zip(headers, row))
+                tweet_text = str(row_data.get("tweet_text") or "").strip()
+                if tweet_text:
+                    tweets_to_insert.append({
+                        "tweet_text": tweet_text,
+                        "source_username": str(row_data.get("source_username") or "manual_upload"),
+                        "tweet_id": str(row_data.get("tweet_id") or random.randint(10**17, 10**18 - 1))
+                    })
+        elif filename.endswith(".csv"):
+            content = file.read().decode("utf-8")
+            reader = csv.DictReader(io.StringIO(content))
+            for row in reader:
+                tweet_text = str(row.get("tweet_text") or "").strip()
+                if tweet_text:
+                    tweets_to_insert.append({
+                        "tweet_text": tweet_text,
+                        "source_username": row.get("source_username") or "manual_upload",
+                        "tweet_id": row.get("tweet_id") or str(random.randint(10**17, 10**18 - 1))
+                    })
+        else:
+            return jsonify({"error": "Only .xlsx and .csv files supported"}), 400
+
+        inserted = 0
+        for t in tweets_to_insert:
+            txt = t["tweet_text"].replace("'", "''")
+            src = str(t["source_username"]).replace("'", "")
+            tid = str(t["tweet_id"]).replace("'", "")
+            try:
+                run_query(
+                    f"INSERT INTO collected_tweets (user_id, tweet_id, source_value, tweet_text, created_at) "
+                    f"VALUES ({user_id}, '{tid}', '{src}', '{txt}', NOW()) ON CONFLICT DO NOTHING"
+                )
+                inserted += 1
+            except Exception:
+                pass
+
+        return jsonify({"message": f"Uploaded {inserted} tweets", "count": inserted}), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@tweets_bp.route("/extract/manual/<string:twitter_id>", methods=["POST"])
+def manual_extract_for_account(twitter_id):
+    """Trigger a manual tweet extraction for one specific account."""
+    try:
+        from services.fetch_tweets import fetch_tweets_for_single_user
+        user_row = run_query(f"SELECT id FROM users WHERE twitter_id = '{twitter_id}'", fetchone=True)
+        if not user_row:
+            return jsonify({"error": "Account not found"}), 404
+        user_id = user_row[0]
+        import threading
+        stop_event = threading.Event()
+        t = threading.Thread(target=lambda: fetch_tweets_for_single_user(user_id, stop_event), daemon=True)
+        t.start()
+        return jsonify({"message": f"Manual extraction started for @{twitter_id}"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@tweets_bp.route("/extract/manual/all", methods=["POST"])
+def manual_extract_all():
+    """Trigger a manual tweet extraction for all active accounts."""
+    try:
+        from services.fetch_tweets import fetch_tweets_for_all_users
+        import threading
+        stop_event = threading.Event()
+        t = threading.Thread(target=lambda: fetch_tweets_for_all_users(stop_event), daemon=True)
+        t.start()
+        return jsonify({"message": "Manual extraction started for all active accounts"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── Posted Tweets Management ────────────────────────────────────────────────
+
+@tweets_bp.route("/posted/summary", methods=["GET"])
+def get_posted_summary():
+    """Returns a per-account summary of posted tweet counts."""
+    rows = run_query(
+        "SELECT u.id, u.twitter_id, u.username, u.profile_pic, u.account_status, COUNT(pt.id) as posted_count "
+        "FROM users u LEFT JOIN posted_tweets pt ON pt.user_id = u.id "
+        "GROUP BY u.id, u.twitter_id, u.username, u.profile_pic, u.account_status ORDER BY u.username"
+    )
+    if not rows:
+        return jsonify([]), 200
+    return jsonify([{
+        "user_id": r[0], "twitter_id": r[1], "username": r[2],
+        "profile_pic": r[3], "account_status": r[4], "posted_count": r[5]
+    } for r in rows]), 200
+
+
+@tweets_bp.route("/posted/<int:user_id>/by-day", methods=["GET"])
+def get_posted_by_day(user_id):
+    """Returns posted tweets grouped by day for a specific user."""
+    rows = run_query(
+        f"SELECT DATE(created_at) as post_date, COUNT(*) as count "
+        f"FROM posted_tweets WHERE user_id = {user_id} "
+        f"GROUP BY DATE(created_at) ORDER BY post_date DESC LIMIT 30"
+    )
+    days = []
+    if rows:
+        for r in rows:
+            days.append({"date": str(r[0]), "count": r[1]})
+    return jsonify(days), 200
+
+
+@tweets_bp.route("/posted/<int:user_id>/on-date", methods=["GET"])
+def get_posted_on_date(user_id):
+    """Returns all posts for a user on a specific date."""
+    target_date = request.args.get("date")  # e.g. 2026-07-16
+    if not target_date:
+        return jsonify({"error": "date query param required (YYYY-MM-DD)"}), 400
+    rows = run_query(
+        f"SELECT id, tweet_text, created_at, post_status, failure_reason "
+        f"FROM posted_tweets WHERE user_id = {user_id} AND DATE(created_at) = '{target_date}' "
+        f"ORDER BY created_at ASC"
+    )
+    tweets = []
+    if rows:
+        for r in rows:
+            tweets.append({
+                "id": r[0], "tweet_text": r[1],
+                "created_at": r[2].isoformat() if r[2] else None,
+                "status": r[3] or "posted",
+                "failure_reason": r[4]
+            })
+    return jsonify(tweets), 200
+
