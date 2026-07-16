@@ -247,9 +247,28 @@ def _format_since_for_twitterapi_io(ts_unix: int) -> str:
     dt = datetime.fromtimestamp(ts_unix, tz=timezone.utc)
     return dt.strftime("%Y-%m-%d_%H:%M:%S_UTC")
 
+def _get_since_timestamp_for_user(user_id):
+    last_extract_row = run_query(f"SELECT MAX(timestamp) FROM logs WHERE user_id = '{user_id}' AND event_type = 'EXTRACT'", fetchone=True)
+    import time
+    if last_extract_row and last_extract_row[0]:
+        last_extract_dt = last_extract_row[0]
+        if last_extract_dt.tzinfo is None:
+            last_extract_dt = last_extract_dt.replace(tzinfo=timezone.utc)
+        else:
+            last_extract_dt = last_extract_dt.astimezone(timezone.utc)
+        since_timestamp = int(last_extract_dt.timestamp())
+        
+        # Max lookback: 24 hours
+        min_lookback = int(time.time()) - 24 * 60 * 60
+        if since_timestamp < min_lookback:
+            return min_lookback
+        # Overlap by 60 seconds to avoid missing border tweets
+        return since_timestamp - 60
+    else:
+        return int(time.time()) - 24 * 60 * 60
 
 async def extract_by_combination(session, user_id, monitored_users, keywords, limit, fetching_event):
-    since_timestamp = int(time.time()) - 4 * 60 * 60 - 60
+    since_timestamp = _get_since_timestamp_for_user(user_id)
     collected_count = 0
 
     api_key = get_twitterapi_key()
@@ -357,7 +376,7 @@ async def extract_by_combination(session, user_id, monitored_users, keywords, li
 
 
 async def extract_by_copy_user(session, user_id, monitored_users, limit, fetching_event):
-    since_timestamp = int(time.time()) - 4 * 60 * 60 - 60
+    since_timestamp = _get_since_timestamp_for_user(user_id)
     collected_count = 0
 
     api_key = get_twitterapi_key()
