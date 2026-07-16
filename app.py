@@ -18,8 +18,11 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.config.from_object(Config)
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
-CORS(app, origins=cors_origins, supports_credentials=True)
+cors_origins = os.getenv("CORS_ORIGINS", "*")
+if cors_origins == "*":
+    CORS(app)
+else:
+    CORS(app, origins=cors_origins.split(","), supports_credentials=True)
 
 # manager = Manager()
 fetching_event = threading.Event()
