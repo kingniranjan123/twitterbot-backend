@@ -812,7 +812,7 @@ def add_account():
         return jsonify({'error': str(e)}), 500
 
 
-@accounts_bp.route("/api/accounts/check-alive", methods=["POST"])
+@accounts_bp.route("/accounts/check-alive", methods=["POST"])
 def check_accounts_alive():
     rapidapi_key = get_rapidapi_key()
     if not rapidapi_key:
@@ -827,9 +827,9 @@ def check_accounts_alive():
         dead = []
 
         for user in users:
-            twitter_id = user["twitter_id"]
-            username = user["username"]
-            session_str = user["session"]
+            twitter_id = user[0]
+            username = user[1]
+            session_str = user[2]
 
             headers = {
                 "x-rapidapi-key": rapidapi_key,
