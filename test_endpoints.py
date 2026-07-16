@@ -1,51 +1,44 @@
-import subprocess
-import time
+import os
 import requests
+import json
+from dotenv import load_dotenv
 
-# Start the Flask app
-print("Starting Flask server...")
-proc = subprocess.Popen(["python", "app.py"])
-time.sleep(5)  # Wait for server to start
-
-BASE_URL = "http://localhost:5000"
-
-endpoints_to_test = [
-    ("GET", "/", None),
-    ("GET", "/status-fetch", None),
-    ("POST", "/start-fetch", None),
-    ("POST", "/stop-fetch", None),
-    ("GET", "/api/accounts", None),
-    ("GET", "/api/account/dummy_id", None),
-    ("POST", "/api/account/dummy_id/refresh-profile", None),
-    ("POST", "/api/account/dummy_id/verify-category", None),
-    ("GET", "/api/usage/requests-per-day", None),
-    ("GET", "/api/openai-config?user_id=dummy", None),
-]
-
-print(f"{'Method':<8} | {'Endpoint':<45} | {'Status'}")
-print("-" * 65)
-
-for method, path, data in endpoints_to_test:
-    url = f"{BASE_URL}{path}"
-    try:
-        if method == "GET":
-            resp = requests.get(url, timeout=5)
-        elif method == "POST":
-            resp = requests.post(url, json=data, timeout=5)
-        elif method == "PUT":
-            resp = requests.put(url, json=data, timeout=5)
-        elif method == "DELETE":
-            resp = requests.delete(url, timeout=5)
-            
-        print(f"{method:<8} | {path:<45} | {resp.status_code}")
-    except Exception as e:
-        print(f"{method:<8} | {path:<45} | ERROR: {e}")
-
-print("-" * 65)
-print("Stopping Flask server...")
-proc.terminate()
+load_dotenv("d:\\Anti-Gravity-Google\\Twitter-Facudi-v02\\backend\\.env")
+rapid_key = os.getenv("RAPIDAPI_KEY") or "bd48b450bemsh0d4a77b8da9f55cp1615a1jsncd3cba397edb" 
+# (Note: I will fetch the key from the DB instead of assuming)
+import psycopg2
 try:
-    proc.wait(timeout=5)
-except:
-    proc.kill()
-print("Done.")
+    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+    cur = conn.cursor()
+    cur.execute("SELECT api_key FROM api_keys WHERE name = 'RAPIDAPI'")
+    rapid_key = cur.fetchone()[0]
+    
+    # get one valid session
+    cur.execute("SELECT twitter_id, session, username FROM users WHERE session IS NOT NULL LIMIT 1")
+    user = cur.fetchone()
+    if not user:
+        print("No valid user found")
+    else:
+        twitter_id, session_str, username = user
+        print(f"Testing with user {username}")
+        
+        headers = {
+            "x-rapidapi-key": rapid_key,
+            "x-rapidapi-host": "twttrapi.p.rapidapi.com",
+            "twttr-session": session_str
+        }
+        
+        # Test 1: get own followers
+        url = f"https://twttrapi.p.rapidapi.com/user-followers?username={username}&count=20"
+        print("\nValid session:")
+        res = requests.get(url, headers=headers)
+        print("Status:", res.status_code)
+        
+        print("\nInvalid session:")
+        headers["twttr-session"] = "auth_token=invalid;"
+        res = requests.get(url, headers=headers)
+        print("Status:", res.status_code)
+        print(res.text[:200])
+
+except Exception as e:
+    print(f"Error: {e}")

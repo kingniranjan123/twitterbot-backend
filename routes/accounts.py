@@ -288,7 +288,7 @@ def update_user_profile(twitter_id):
 def get_accounts():
     query = """
             SELECT 
-                u.id, u.twitter_id, u.username, u.profile_pic, u.followers, u.following, u.rate_limit,
+                u.id, u.twitter_id, u.username, u.profile_pic, u.followers, u.following, u.rate_limit, u.session,
                 COALESCE(ct.collected_count, 0) AS collected_tweets,
                 COALESCE(pt.last_post, NULL) AS last_post,
                 COALESCE(le.last_extract, NULL) AS last_extract
@@ -809,4 +809,51 @@ def add_account():
         return jsonify({'message': 'Account added successfully', 'id': res[0]}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@accounts_bp.route("/api/accounts/check-alive", methods=["POST"])
+def check_accounts_alive():
+    rapidapi_key = get_rapidapi_key()
+    if not rapidapi_key:
+        return jsonify({"error": "RapidAPI Key no configurada"}), 500
+
+    try:
+        users = run_query("SELECT twitter_id, username, session FROM users WHERE session IS NOT NULL")
+        if not users:
+            return jsonify({"alive": [], "dead": []}), 200
+
+        alive = []
+        dead = []
+
+        for user in users:
+            twitter_id = user["twitter_id"]
+            username = user["username"]
+            session_str = user["session"]
+
+            headers = {
+                "x-rapidapi-key": rapidapi_key,
+                "x-rapidapi-host": "twttrapi.p.rapidapi.com",
+                "twttr-session": session_str
+            }
+            
+            # Using user-followers endpoint which requires auth for accurate check
+            # or user-info? We can just use user-followers as it's safe.
+            url = f"https://twttrapi.p.rapidapi.com/user-followers?username={username}&count=20"
+            response = requests.get(url, headers=headers)
+            log_usage("RAPIDAPI")
+
+            if response.status_code == 200:
+                alive.append(twitter_id)
+            else:
+                dead.append(twitter_id)
+                # Nullify session in DB
+                run_query(f"UPDATE users SET session = NULL WHERE twitter_id = '{twitter_id}'")
+
+        return jsonify({
+            "alive": alive,
+            "dead": dead
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
