@@ -289,6 +289,8 @@ def get_accounts():
     query = """
             SELECT 
                 u.id, u.twitter_id, u.username, u.profile_pic, u.followers, u.following, u.rate_limit, u.session,
+                u.account_status, u.consecutive_failures, u.ai_enabled, u.extraction_method,
+                u.post_window_morning, u.post_window_evening, u.post_delay_seconds, u.posts_per_day,
                 COALESCE(ct.collected_count, 0) AS collected_tweets,
                 COALESCE(pt.last_post, NULL) AS last_post,
                 COALESCE(le.last_extract, NULL) AS last_extract
@@ -324,9 +326,17 @@ def get_accounts():
         "following": acc[5],
         "rate_limit": acc[6],
         "session": acc[7],
-        "collected_tweets": acc[8],
-        "last_post": acc[9].isoformat() if acc[9] else None,
-        "last_extract": acc[10].isoformat() if acc[10] else None
+        "account_status": acc[8],
+        "consecutive_failures": acc[9],
+        "ai_enabled": acc[10],
+        "extraction_method": acc[11],
+        "post_window_morning": acc[12],
+        "post_window_evening": acc[13],
+        "post_delay_seconds": acc[14],
+        "posts_per_day": acc[15],
+        "collected_tweets": acc[16],
+        "last_post": acc[17].isoformat() if acc[17] else None,
+        "last_extract": acc[18].isoformat() if acc[18] else None
     } for acc in accounts]
     print(accounts_list)
 

@@ -211,7 +211,8 @@ def get_extracted_summary():
     rows = run_query(
         "SELECT u.id, u.twitter_id, u.username, u.profile_pic, u.account_status, COUNT(ct.tweet_id) as tweet_count "
         "FROM users u LEFT JOIN collected_tweets ct ON CAST(ct.user_id AS TEXT) = CAST(u.id AS TEXT) "
-        "GROUP BY u.id, u.twitter_id, u.username, u.profile_pic, u.account_status ORDER BY u.username"
+        "GROUP BY u.id, u.twitter_id, u.username, u.profile_pic, u.account_status ORDER BY u.username",
+        fetchall=True
     )
     if not rows:
         return jsonify([]), 200
@@ -229,7 +230,8 @@ def get_extracted_for_user(user_id):
     rows = run_query(
         f"SELECT tweet_id, source_value, tweet_text, created_at, priority "
         f"FROM collected_tweets WHERE user_id = {user_id} "
-        f"ORDER BY created_at DESC LIMIT {limit} OFFSET {offset}"
+        f"ORDER BY created_at DESC LIMIT {limit} OFFSET {offset}",
+        fetchall=True
     )
     total_row = run_query(f"SELECT COUNT(*) FROM collected_tweets WHERE user_id = {user_id}", fetchone=True)
     total = total_row[0] if total_row else 0
@@ -367,7 +369,8 @@ def get_posted_summary():
     rows = run_query(
         "SELECT u.id, u.twitter_id, u.username, u.profile_pic, u.account_status, COUNT(pt.id) as posted_count "
         "FROM users u LEFT JOIN posted_tweets pt ON CAST(pt.user_id AS TEXT) = CAST(u.id AS TEXT) "
-        "GROUP BY u.id, u.twitter_id, u.username, u.profile_pic, u.account_status ORDER BY u.username"
+        "GROUP BY u.id, u.twitter_id, u.username, u.profile_pic, u.account_status ORDER BY u.username",
+        fetchall=True
     )
     if not rows:
         return jsonify([]), 200
@@ -383,7 +386,8 @@ def get_posted_by_day(user_id):
     rows = run_query(
         f"SELECT DATE(created_at) as post_date, COUNT(*) as count "
         f"FROM posted_tweets WHERE user_id = {user_id} "
-        f"GROUP BY DATE(created_at) ORDER BY post_date DESC LIMIT 30"
+        f"GROUP BY DATE(created_at) ORDER BY post_date DESC LIMIT 30",
+        fetchall=True
     )
     days = []
     if rows:
@@ -401,7 +405,8 @@ def get_posted_on_date(user_id):
     rows = run_query(
         f"SELECT id, tweet_text, created_at, post_status, failure_reason "
         f"FROM posted_tweets WHERE user_id = {user_id} AND DATE(created_at) = '{target_date}' "
-        f"ORDER BY created_at ASC"
+        f"ORDER BY created_at ASC",
+        fetchall=True
     )
     tweets = []
     if rows:
