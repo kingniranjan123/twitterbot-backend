@@ -209,8 +209,8 @@ def set_provider_source():
 def get_extracted_summary():
     """Returns a per-account summary of extracted tweet counts."""
     rows = run_query(
-        "SELECT u.id, u.twitter_id, u.username, u.profile_pic, u.account_status, COUNT(ct.id) as tweet_count "
-        "FROM users u LEFT JOIN collected_tweets ct ON ct.user_id = u.id "
+        "SELECT u.id, u.twitter_id, u.username, u.profile_pic, u.account_status, COUNT(ct.tweet_id) as tweet_count "
+        "FROM users u LEFT JOIN collected_tweets ct ON CAST(ct.user_id AS TEXT) = CAST(u.id AS TEXT) "
         "GROUP BY u.id, u.twitter_id, u.username, u.profile_pic, u.account_status ORDER BY u.username"
     )
     if not rows:
@@ -366,7 +366,7 @@ def get_posted_summary():
     """Returns a per-account summary of posted tweet counts."""
     rows = run_query(
         "SELECT u.id, u.twitter_id, u.username, u.profile_pic, u.account_status, COUNT(pt.id) as posted_count "
-        "FROM users u LEFT JOIN posted_tweets pt ON pt.user_id = u.id "
+        "FROM users u LEFT JOIN posted_tweets pt ON CAST(pt.user_id AS TEXT) = CAST(u.id AS TEXT) "
         "GROUP BY u.id, u.twitter_id, u.username, u.profile_pic, u.account_status ORDER BY u.username"
     )
     if not rows:
