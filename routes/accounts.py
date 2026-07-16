@@ -910,18 +910,16 @@ def check_accounts_alive():
                 "twttr-session": session_str
             }
             
-            # Using user-followers endpoint which requires auth for accurate check
-            # or user-info? We can just use user-followers as it's safe.
             url = f"https://twttrapi.p.rapidapi.com/user-followers?username={username}&count=20"
             response = requests.get(url, headers=headers)
             log_usage("RAPIDAPI")
 
             if response.status_code == 200:
                 alive.append(twitter_id)
+                run_query(f"UPDATE users SET account_status = 'active' WHERE twitter_id = '{twitter_id}'")
             else:
                 dead.append(twitter_id)
-                # Nullify session in DB
-                run_query(f"UPDATE users SET session = NULL WHERE twitter_id = '{twitter_id}'")
+                run_query(f"UPDATE users SET session = NULL, account_status = 'held' WHERE twitter_id = '{twitter_id}'")
 
         return jsonify({
             "alive": alive,
