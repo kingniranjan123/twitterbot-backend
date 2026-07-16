@@ -795,15 +795,17 @@ def add_account():
     if not username:
         return jsonify({'error': 'Username is required'}), 400
         
+    # Sanitización básica
+    username = username.replace("'", "''")
     twitter_id = str(username)
     
-    query = '''
+    query = f'''
         INSERT INTO users (twitter_id, username, profile_pic, followers, following, rate_limit, likes_limit, comments_limit, retweets_limit, follows_limit, extraction_method)
-        VALUES (%s, %s, 'https://avatar.iran.liara.run/public/boy', 0, 0, 10, 10, 10, 10, 10, 1)
+        VALUES ('{twitter_id}', '{username}', 'https://avatar.iran.liara.run/public/boy', 0, 0, 10, 10, 10, 10, 10, 1)
         RETURNING id
     '''
     try:
-        res = run_query(query, (twitter_id, username), fetchone=True)
+        res = run_query(query, fetchone=True)
         return jsonify({'message': 'Account added successfully', 'id': res[0]}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
