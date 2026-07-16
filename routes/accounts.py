@@ -323,9 +323,10 @@ def get_accounts():
         "followers": acc[4],
         "following": acc[5],
         "rate_limit": acc[6],
-        "collected_tweets": acc[7],
-        "last_post": acc[8].isoformat() if acc[8] else None,
-        "last_extract": acc[9].isoformat() if acc[9] else None
+        "session": acc[7],
+        "collected_tweets": acc[8],
+        "last_post": acc[9].isoformat() if acc[9] else None,
+        "last_extract": acc[10].isoformat() if acc[10] else None
     } for acc in accounts]
     print(accounts_list)
 
