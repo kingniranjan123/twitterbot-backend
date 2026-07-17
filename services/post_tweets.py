@@ -67,9 +67,16 @@ def post_tweet(user_id, tweet_text, media_urls=None):
     # For this migration step, I will focus on the text Post.
     # TODO: Implement media upload for TwitterAPI.io if documentation allows.
     
+    session_row = run_query(f"SELECT session FROM users WHERE id = {user_id}", fetchone=True)
+    auth_session = session_row[0] if session_row else None
+    
+    if not auth_session:
+        return {"error": "No auth_session found for user"}, 400
+
     url = "https://api.twitterapi.io/twitter/create_tweet"
     payload = {
-        "text": tweet_text
+        "text": tweet_text,
+        "auth_session": auth_session
     }
     
     # If media_ids were supported/implemented:

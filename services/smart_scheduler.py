@@ -174,10 +174,12 @@ def generate_daily_schedules():
             evening_str = acc[5] if acc[5] else "17-21"
             delay_secs = int(acc[6]) if acc[6] else 1800
 
-            schedule_times = generate_schedule_for_user(user_id, posts_per_day, morning_str, evening_str, delay_secs)
+            # Check if schedule already exists
+            existing = run_query(f"SELECT id FROM daily_schedule WHERE user_id = {user_id} AND scheduled_date = '{today}'")
+            if existing:
+                continue
 
-            # Delete existing schedule for today if any
-            run_query(f"DELETE FROM daily_schedule WHERE user_id = {user_id} AND scheduled_date = '{today}'")
+            schedule_times = generate_schedule_for_user(user_id, posts_per_day, morning_str, evening_str, delay_secs)
 
             # Insert new schedule
             run_query(
@@ -224,16 +226,21 @@ def get_due_accounts():
 
 def midnight_scheduler_loop():
     """
-    Background loop that generates schedules at 00:01 every day.
+    Background loop that generates schedules at 00:01 and 12:05 every day.
     Runs in a daemon thread.
     """
-    print("[SmartScheduler] Midnight scheduler loop started.")
+    print("[SmartScheduler] Scheduler loop started.")
     while True:
         now = datetime.now()
-        # Target: 00:01:00
-        target = now.replace(hour=0, minute=1, second=0, microsecond=0)
-        if now >= target:
-            target += timedelta(days=1)
+        target_am = now.replace(hour=0, minute=1, second=0, microsecond=0)
+        target_pm = now.replace(hour=12, minute=5, second=0, microsecond=0)
+
+        if now < target_am:
+            target = target_am
+        elif now < target_pm:
+            target = target_pm
+        else:
+            target = target_am + timedelta(days=1)
         
         wait_seconds = (target - now).total_seconds()
         print(f"[SmartScheduler] Next schedule generation in {int(wait_seconds)}s at {target}")

@@ -294,7 +294,8 @@ def get_accounts():
                 COALESCE(ct.collected_count, 0) AS collected_tweets,
                 COALESCE(pt.last_post, NULL) AS last_post,
                 COALESCE(le.last_extract, NULL) AS last_extract,
-                COALESCE(pd.daily_posts, 0) AS posted_today
+                COALESCE(pd.daily_posts, 0) AS posted_today,
+                COALESCE(ds.scheduled_times, NULL) AS scheduled_times
             FROM users u
             LEFT JOIN (
                 SELECT user_id, COUNT(*) AS daily_posts
@@ -318,38 +319,58 @@ def get_accounts():
                 WHERE event_type = 'EXTRACT'
                 GROUP BY user_id
             ) le ON u.id = le.user_id
+            LEFT JOIN (
+                SELECT user_id, scheduled_times
+                FROM daily_schedule
+                WHERE scheduled_date = CURRENT_DATE
+            ) ds ON u.id = ds.user_id
+            ORDER BY u.id ASC
     """
     accounts = run_query(query, fetchall=True)
 
     if not accounts:
-        return jsonify({"message": "No hay cuentas registradas"}), 200
+        return jsonify([])
 
-    accounts_list = [{
-        "id": acc[0],
-        "twitter_id": acc[1],
-        "username": acc[2],
-        "profile_pic": acc[3],
-        "followers": acc[4],
-        "following": acc[5],
-        "rate_limit": acc[6],
-        "session": acc[7],
-        "account_status": acc[8],
-        "consecutive_failures": acc[9],
-        "ai_enabled": acc[10],
-        "extraction_method": acc[11],
-        "post_window_morning": acc[12],
-        "post_window_evening": acc[13],
-        "post_delay_seconds": acc[14],
-        "posts_per_day": acc[15],
-        "extraction_limit": acc[16],
-        "collected_tweets": acc[17],
-        "last_post": acc[18].isoformat() if acc[18] else None,
-        "last_extract": acc[19].isoformat() if acc[19] else None,
-        "posted_today": acc[20],
-        "has_session": bool(acc[7])
-    } for acc in accounts]
-    print(accounts_list)
+    from datetime import datetime
+    now_str = datetime.now().strftime("%H:%M")
 
+    accounts_list = []
+    for acc in accounts:
+        scheduled_times_str = acc[21]
+        next_post = None
+        if scheduled_times_str:
+            times = [t.strip() for t in scheduled_times_str.split(",") if t.strip()]
+            future_times = [t for t in times if t >= now_str]
+            if future_times:
+                next_post = future_times[0]
+            elif times:
+                next_post = times[-1] + " (Done)"
+        
+        accounts_list.append({
+            "id": acc[0],
+            "twitter_id": acc[1],
+            "username": acc[2],
+            "profile_pic": acc[3],
+            "followers": acc[4],
+            "following": acc[5],
+            "rate_limit": acc[6],
+            "session": acc[7],
+            "account_status": acc[8],
+            "consecutive_failures": acc[9],
+            "ai_enabled": acc[10],
+            "extraction_method": acc[11],
+            "post_window_morning": acc[12],
+            "post_window_evening": acc[13],
+            "post_delay_seconds": acc[14],
+            "posts_per_day": acc[15],
+            "extraction_limit": acc[16],
+            "collected_tweets": acc[17],
+            "last_post": acc[18].isoformat() if hasattr(acc[18], 'isoformat') else (str(acc[18]) if acc[18] else None),
+            "last_extract": acc[19].isoformat() if hasattr(acc[19], 'isoformat') else (str(acc[19]) if acc[19] else None),
+            "posted_today": acc[20],
+            "next_post_time": next_post,
+            "has_session": bool(acc[7])
+        })
     return jsonify(accounts_list), 200
 
 
