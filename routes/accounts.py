@@ -881,7 +881,8 @@ def post_now(twitter_id):
     response, status_code = post_tweet(user_id, tweet_text, media_urls=media_urls)
     
     if status_code == 200:
-        run_query(f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{tweet_text.replace(\"'\", \"''\")}', NOW())")
+        safe_tweet_text = tweet_text.replace("'", "''")
+        run_query(f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{safe_tweet_text}', NOW())")
         run_query(f"DELETE FROM collected_tweets WHERE tweet_id = '{tweet_id}' AND user_id = '{user_id}'")
         run_query(f"DELETE FROM collected_media WHERE tweet_id = '{tweet_id}' AND user_id = '{user_id}'")
         
