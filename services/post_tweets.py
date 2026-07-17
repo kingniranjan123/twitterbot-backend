@@ -75,7 +75,7 @@ def post_tweet(user_id, tweet_text, media_urls=None):
 
     url = "https://api.twitterapi.io/twitter/create_tweet"
     payload = {
-        "text": tweet_text,
+        "tweet_text": tweet_text,
         "auth_session": auth_session
     }
     
