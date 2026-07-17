@@ -34,7 +34,23 @@ def get_db():
                 )
             """)
         except Exception as e:
-            print(f"⚠️ Error ensuring openai_configs table: {e}")
+            print(f"Error ensuring openai_configs table: {e}")
+
+        # Ensure api_health_log table exists
+        try:
+            g.db.run("""
+                CREATE TABLE IF NOT EXISTS api_health_log (
+                    id SERIAL PRIMARY KEY,
+                    api_name VARCHAR(100) NOT NULL,
+                    status VARCHAR(20) NOT NULL,
+                    latency_ms INTEGER,
+                    credits_remaining INTEGER,
+                    error_message TEXT,
+                    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+        except Exception as e:
+            print(f"Error ensuring api_health_log table: {e}")
 
     return g.db
 
