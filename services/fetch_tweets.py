@@ -572,9 +572,13 @@ async def fetch_tweets_for_single_user(user_id, fetching_event):
             print(f"⚠ Usuario {user_id} no tiene usuarios o palabras clave monitoreadas.")
             return
 
-    limit_ph = await get_tweet_limit_per_hour(user_id)
-    limit = round(limit_ph * 1.3)
+    limit_result = run_query(f"SELECT extraction_limit FROM users WHERE id = '{user_id}'", fetchone=True)
+    limit = int(limit_result[0]) if limit_result and limit_result[0] is not None else 100
     
+    # If limit is 0, we can treat it as practically no limit (or a huge limit)
+    if limit == 0:
+        limit = 1000000
+
     async with aiohttp.ClientSession() as session:
         await fetch_tweets_for_monitored_users_with_keywords(
             session,

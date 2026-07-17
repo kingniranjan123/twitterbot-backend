@@ -290,7 +290,7 @@ def get_accounts():
             SELECT 
                 u.id, u.twitter_id, u.username, u.profile_pic, u.followers, u.following, u.rate_limit, u.session,
                 u.account_status, u.consecutive_failures, u.ai_enabled, u.extraction_method,
-                u.post_window_morning, u.post_window_evening, u.post_delay_seconds, u.posts_per_day,
+                u.post_window_morning, u.post_window_evening, u.post_delay_seconds, u.posts_per_day, u.extraction_limit,
                 COALESCE(ct.collected_count, 0) AS collected_tweets,
                 COALESCE(pt.last_post, NULL) AS last_post,
                 COALESCE(le.last_extract, NULL) AS last_extract,
@@ -341,10 +341,12 @@ def get_accounts():
         "post_window_evening": acc[13],
         "post_delay_seconds": acc[14],
         "posts_per_day": acc[15],
-        "collected_tweets": acc[16],
-        "last_post": acc[17].isoformat() if acc[17] else None,
-        "last_extract": acc[18].isoformat() if acc[18] else None,
-        "posted_today": acc[19]
+        "extraction_limit": acc[16],
+        "collected_tweets": acc[17],
+        "last_post": acc[18].isoformat() if acc[18] else None,
+        "last_extract": acc[19].isoformat() if acc[19] else None,
+        "posted_today": acc[20],
+        "has_session": bool(acc[7])
     } for acc in accounts]
     print(accounts_list)
 
@@ -357,7 +359,7 @@ def get_account_details(twitter_id):
     SELECT id, username, session, password, language, custom_style, 
     followers, following, status, extraction_filter, profile_pic, 
     notes, likes_limit, retweets_limit, comments_limit, extraction_method, 
-    name, ai_score, follows_limit, verified
+    name, ai_score, follows_limit, verified, extraction_limit
     FROM users
     WHERE twitter_id = '{twitter_id}'
     """
@@ -388,7 +390,8 @@ def get_account_details(twitter_id):
         "name": user_data[16],
         "ai_score": user_data[17],
         "follows_limit": user_data[18],
-        "verified": user_data[19]
+        "verified": user_data[19],
+        "extraction_limit": user_data[20]
     }
     
     follow_users_query = f"""
@@ -495,6 +498,7 @@ def update_account(twitter_id):
     likes_limit = data.get("likes_limit", [])
     follows_limit = data.get("follows_limit", [])
     extraction_method = data.get("extraction_method", 1)
+    extraction_limit = data.get("extraction_limit", 100)
 
     user_query = f"SELECT id FROM users WHERE twitter_id = '{twitter_id}'"
     user_data = run_query(user_query, fetchone=True)
@@ -508,7 +512,7 @@ def update_account(twitter_id):
     UPDATE users
     SET language = '{language}', custom_style = '{custom_style}', extraction_filter = '{extraction_filter}',
     notes = '{notes}', likes_limit = '{likes_limit}', comments_limit = '{comments_limit}', follows_limit = '{follows_limit}',
-    retweets_limit = '{retweets_limit}', extraction_method = '{extraction_method}'
+    retweets_limit = '{retweets_limit}', extraction_method = '{extraction_method}', extraction_limit = {extraction_limit}
     WHERE twitter_id = '{twitter_id}'
     """
     run_query(update_user_query)
