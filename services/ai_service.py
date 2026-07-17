@@ -347,6 +347,7 @@ def save_collected_tweet_simple(user_id, source_type, source_value, tweet_id, tw
     """
     run_query(insert_query)
     print(f"✅ Tweet {tweet_id} guardado correctamente (modo simple).")
+    return "saved"
 
 def verify_tweet_priority(tweet_id, user_id, tweet_text, extraction_filter):
     return 5
@@ -371,7 +372,7 @@ def save_collected_tweet(user_id, source_type, source_value, tweet_id, tweet_tex
     existing_tweet = run_query(check_query, fetchone=True)
     if existing_tweet:
         print(f"⚠ Tweet {tweet_id} ya existe. No se guardará.")
-        return  
+        return "duplicate"
 
     since_time = datetime.now() - timedelta(hours=48)
     recent_query = f"""
@@ -391,13 +392,13 @@ def save_collected_tweet(user_id, source_type, source_value, tweet_id, tweet_tex
     # Pass user_id to is_duplicate_tweet
     if is_duplicate_tweet(tweet_text, recent_tweets, api_key, user_id):
         print(f"⚠ El tweet {tweet_id} parece duplicado. No se guardará.")
-        return
+        return "duplicate"
 
     language_query = f"SELECT language, custom_style FROM users WHERE id = {user_id}"
     user_language = run_query(language_query, fetchone=True)
     if not user_language:
         print(f"❌ No se encontró el idioma para el usuario {user_id}.")
-        return
+        return "error"
 
     target_language = user_language[0]
     custom_style = f'Custom Style: {user_language[1]}' if user_language[1] else ''
@@ -410,12 +411,12 @@ def save_collected_tweet(user_id, source_type, source_value, tweet_id, tweet_tex
         translated_text = translate_text_with_openai(tweet_text, target_language, custom_style, user_id)
         if not translated_text:
             print(f"❌ Can't translate tweet: {tweet_id}.")
-            return
+            return "error"
 
         print(f"🌐 Tweet traducido al idioma '{target_language}': {translated_text}")
     
     if extraction_filter in ["cb2", "cb3", "cb4"] and "https://" not in translated_text:
-        pass
+        return "rejected_filter"
     else:
         priority = verify_tweet_priority(tweet_id, user_id, translated_text, extraction_filter)
             
@@ -437,6 +438,7 @@ def save_collected_tweet(user_id, source_type, source_value, tweet_id, tweet_tex
         WHERE tweet_id = '{tweet_id}'
         """
         run_query(update_query)
+        return "saved"
 
         print(f"✅ Tweet {tweet_id} priorizado correctamente.")
         

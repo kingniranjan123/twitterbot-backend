@@ -41,6 +41,32 @@ def get_logs():
 
     return jsonify(log_list)
 
+@logs_bp.route("/api-usage", methods=["GET"])
+def get_api_usage():
+    limit = request.args.get('limit', 100)
+    query = f"SELECT * FROM api_operations_log ORDER BY created_at DESC LIMIT {int(limit)}"
+    logs = run_query(query, fetchall=True)
+    
+    log_list = []
+    for row in (logs or []):
+        log_list.append({
+            "id": row[0],
+            "user_id": row[1],
+            "username": row[2],
+            "operation": row[3],
+            "status": row[4],
+            "fetched_count": row[5],
+            "saved_count": row[6],
+            "rejected_count": row[7],
+            "posted_count": row[8],
+            "api_name": row[9],
+            "error_message": row[10],
+            "created_at": row[11].strftime("%Y-%m-%d %H:%M:%S") if row[11] else None
+        })
+        
+    return jsonify(log_list)
+
+
 
 def log_usage(api: str, count: int = 1):
     query = f"""

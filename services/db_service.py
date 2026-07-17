@@ -52,6 +52,27 @@ def get_db():
         except Exception as e:
             print(f"Error ensuring api_health_log table: {e}")
 
+        # Ensure api_operations_log table exists
+        try:
+            g.db.run("""
+                CREATE TABLE IF NOT EXISTS api_operations_log (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER,
+                    username VARCHAR(100),
+                    operation_type VARCHAR(50),
+                    status VARCHAR(50),
+                    fetched_count INTEGER DEFAULT 0,
+                    saved_count INTEGER DEFAULT 0,
+                    rejected_count INTEGER DEFAULT 0,
+                    posted_count INTEGER DEFAULT 0,
+                    api_source VARCHAR(50),
+                    error_message TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+        except Exception as e:
+            print(f"Error ensuring api_operations_log table: {e}")
+
     return g.db
 
 
@@ -90,5 +111,22 @@ def log_event(user_id, event_type, description):
     query = f"""
     INSERT INTO logs (user_id, event_type, event_description)
     VALUES ({val_user_id}, '{event_type}', '{safe_description}')
+    """
+    run_query(query)
+
+
+def log_api_operation(user_id, username, operation_type, status, fetched_count=0, saved_count=0, rejected_count=0, posted_count=0, api_source=None, error_message=None):
+    val_user_id = user_id if user_id else "NULL"
+    val_username = f"'{username}'" if username else "NULL"
+    val_operation = f"'{operation_type}'"
+    val_status = f"'{status}'"
+    val_api_source = f"'{api_source}'" if api_source else "NULL"
+    val_error = f"'{error_message.replace(chr(39), chr(39)+chr(39))}'" if error_message else "NULL"
+    
+    query = f"""
+    INSERT INTO api_operations_log 
+    (user_id, username, operation_type, status, fetched_count, saved_count, rejected_count, posted_count, api_source, error_message)
+    VALUES 
+    ({val_user_id}, {val_username}, {val_operation}, {val_status}, {fetched_count}, {saved_count}, {rejected_count}, {posted_count}, {val_api_source}, {val_error})
     """
     run_query(query)

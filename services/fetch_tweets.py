@@ -487,7 +487,11 @@ async def fetch_tweets_for_monitored_users_with_keywords(session, user_id, monit
         if fetching_event.is_set():
             return
 
-        print(f"🔍 Ejecutando extracción para método {extraction_method}")
+        print(f"🎯 Ejecutando extracción para método {extraction_method}")
+
+        initial_count_row = run_query(f"SELECT COUNT(*) FROM collected_tweets WHERE user_id = {user_id}", fetchone=True)
+        initial_saved_count = initial_count_row[0] if initial_count_row else 0
+        count = 0
 
         if extraction_method == 1:
             count = await extract_by_combination(session, user_id, monitored_users, keywords, limit, fetching_event)
@@ -514,10 +518,22 @@ async def fetch_tweets_for_monitored_users_with_keywords(session, user_id, monit
 
         print(f"🎯 Finalizado. Total tweets extraídos: {count}/{limit}")
         
+        final_count_row = run_query(f"SELECT COUNT(*) FROM collected_tweets WHERE user_id = {user_id}", fetchone=True)
+        final_saved_count = final_count_row[0] if final_count_row else 0
+        
+        saved_count = max(0, final_saved_count - initial_saved_count)
+        fetched_count = count
+        rejected_count = max(0, fetched_count - saved_count)
+        status = "SUCCESS"
+        
         # LOGGING EXTRACT STATS
         try:
             username_row = run_query(f"SELECT username FROM users WHERE id = {user_id}", fetchone=True)
             username = username_row[0] if username_row else f"User {user_id}"
+            
+            from services.db_service import log_api_operation
+            log_api_operation(user_id, username, "EXTRACT", status, fetched_count, saved_count, rejected_count, 0, "TwitterAPI", None)
+            
             log_event(user_id, "EXTRACT", f"{username} extracted {count} posts at {datetime.now().strftime('%H:%M')}")
         except Exception as log_err:
             print(f"⚠️ Error logging extract stats: {log_err}")
@@ -527,6 +543,13 @@ async def fetch_tweets_for_monitored_users_with_keywords(session, user_id, monit
         raise
     except Exception as e:
         log_event(user_id, "ERROR", f"Error obteniendo tweets: {str(e)}")
+        try:
+            username_row = run_query(f"SELECT username FROM users WHERE id = {user_id}", fetchone=True)
+            username = username_row[0] if username_row else f"User {user_id}"
+            from services.db_service import log_api_operation
+            log_api_operation(user_id, username, "EXTRACT", "FAILED", 0, 0, 0, 0, "TwitterAPI", str(e))
+        except:
+            pass
         print(f"❌ Error al buscar tweets: {e}")
 
 
@@ -1060,7 +1083,13 @@ async def post_tweets_for_single_user(user_id, posting_event):
     try:
         username_row = run_query(f"SELECT username FROM users WHERE id = {user_id}", fetchone=True)
         username = username_row[0] if username_row else f"User {user_id}"
-        log_event(user_id, "POSTED", f"{username} posted 1 posts at {datetime.now().strftime('%H:%M')}")
+        
+        from services.db_service import log_api_operation
+        if status_code == 200:
+            log_api_operation(user_id, username, "POST", "SUCCESS", 0, 1, 0, 0, "TwitterAPI", None)
+            log_event(user_id, "POSTED", f"{username} posted 1 posts at {datetime.now().strftime('%H:%M')}")
+        else:
+            log_api_operation(user_id, username, "POST", "FAILED", 0, 0, 1, 0, "TwitterAPI", str(response.get('error')))
     except Exception as log_err:
         print(f"⚠️ Error logging post stats: {log_err}")
 

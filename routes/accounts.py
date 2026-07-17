@@ -293,8 +293,15 @@ def get_accounts():
                 u.post_window_morning, u.post_window_evening, u.post_delay_seconds, u.posts_per_day,
                 COALESCE(ct.collected_count, 0) AS collected_tweets,
                 COALESCE(pt.last_post, NULL) AS last_post,
-                COALESCE(le.last_extract, NULL) AS last_extract
+                COALESCE(le.last_extract, NULL) AS last_extract,
+                COALESCE(pd.daily_posts, 0) AS posted_today
             FROM users u
+            LEFT JOIN (
+                SELECT user_id, COUNT(*) AS daily_posts
+                FROM posted_tweets
+                WHERE created_at >= date_trunc('day', NOW())
+                GROUP BY user_id
+            ) pd ON u.id = pd.user_id
             LEFT JOIN (
                 SELECT user_id, COUNT(*) AS collected_count
                 FROM collected_tweets
@@ -336,7 +343,8 @@ def get_accounts():
         "posts_per_day": acc[15],
         "collected_tweets": acc[16],
         "last_post": acc[17].isoformat() if acc[17] else None,
-        "last_extract": acc[18].isoformat() if acc[18] else None
+        "last_extract": acc[18].isoformat() if acc[18] else None,
+        "posted_today": acc[19]
     } for acc in accounts]
     print(accounts_list)
 
@@ -838,6 +846,50 @@ def get_held_accounts():
         "has_session": bool(r[7])
     } for r in rows]
     return jsonify(result), 200
+
+@accounts_bp.route("/account/<string:twitter_id>/post-now", methods=["POST"])
+def post_now(twitter_id):
+    query = f"SELECT id, username FROM users WHERE twitter_id = '{twitter_id}'"
+    user = run_query(query, fetchone=True)
+    if not user:
+        return jsonify({"message": "Usuario no encontrado"}), 404
+
+    user_id = user[0]
+    username = user[1]
+    
+    query_tweets = f"""
+        SELECT tweet_id, tweet_text
+        FROM collected_tweets
+        WHERE user_id = '{user_id}'
+        ORDER BY priority ASC, created_at ASC
+        LIMIT 1
+    """
+    tweet_row = run_query(query_tweets, fetchone=True)
+    
+    if not tweet_row:
+        return jsonify({"message": "No hay tweets pendientes."}), 400
+        
+    tweet_id, tweet_text = tweet_row
+    
+    media_rows = run_query(f"SELECT file_url FROM collected_media WHERE user_id = '{user_id}' AND tweet_id = '{tweet_id}'", fetchall=True)
+    media_urls = [row[0] for row in media_rows] if media_rows else []
+    
+    from services.post_tweets import post_tweet
+    from services.db_service import log_api_operation
+    from datetime import datetime
+    
+    response, status_code = post_tweet(user_id, tweet_text, media_urls=media_urls)
+    
+    if status_code == 200:
+        run_query(f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{tweet_text.replace(\"'\", \"''\")}', NOW())")
+        run_query(f"DELETE FROM collected_tweets WHERE tweet_id = '{tweet_id}' AND user_id = '{user_id}'")
+        run_query(f"DELETE FROM collected_media WHERE tweet_id = '{tweet_id}' AND user_id = '{user_id}'")
+        
+        log_api_operation(user_id, username, "POST_NOW", "SUCCESS", 0, 1, 0, 0, "TwitterAPI", None)
+        return jsonify({"message": "Tweet publicado exitosamente.", "tweet_id": tweet_id}), 200
+    else:
+        log_api_operation(user_id, username, "POST_NOW", "FAILED", 0, 0, 1, 0, "TwitterAPI", str(response.get('error')))
+        return jsonify({"message": "Fallo al publicar.", "error": response.get('error')}), status_code
 
 
 @accounts_bp.route("/accounts/<string:twitter_id>/status", methods=["PATCH"])
