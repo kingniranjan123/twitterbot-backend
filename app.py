@@ -17,8 +17,11 @@ from services.db_service import log_event
 import traceback
 from utils.logs import now_hhmm
 from datetime import datetime
+from services.db_service import close_db
 
 app = Flask(__name__)
+app.teardown_appcontext(close_db)
+
 app.config.from_object(Config)
 cors_origins = os.getenv("CORS_ORIGINS", "*")
 if cors_origins == "*":

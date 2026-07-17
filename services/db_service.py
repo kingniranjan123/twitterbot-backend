@@ -73,6 +73,19 @@ def get_db():
         except Exception as e:
             print(f"Error ensuring api_operations_log table: {e}")
 
+        # Ensure daily_schedule table exists
+        try:
+            g.db.run("""
+                CREATE TABLE IF NOT EXISTS daily_schedule (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    scheduled_date DATE NOT NULL,
+                    scheduled_times TEXT
+                )
+            """)
+        except Exception as e:
+            print(f"Error ensuring daily_schedule table: {e}")
+
     return g.db
 
 
