@@ -911,10 +911,10 @@ def post_now(twitter_id):
         run_query(f"DELETE FROM collected_tweets WHERE tweet_id = '{tweet_id}' AND user_id = '{user_id}'")
         run_query(f"DELETE FROM collected_media WHERE tweet_id = '{tweet_id}' AND user_id = '{user_id}'")
         
-        log_api_operation(user_id, username, "POST_NOW", "SUCCESS", 0, 1, 0, 0, "TwitterAPI", None)
+        log_api_operation(user_id, username, "POST_NOW", "SUCCESS", posted_count=1, api_source="TwitterAPI")
         return jsonify({"message": "Tweet publicado exitosamente.", "tweet_id": tweet_id}), 200
     else:
-        log_api_operation(user_id, username, "POST_NOW", "FAILED", 0, 0, 1, 0, "TwitterAPI", str(response.get('error')))
+        log_api_operation(user_id, username, "POST_NOW", "FAILED", rejected_count=1, api_source="TwitterAPI", error_message=str(response.get('error')))
         return jsonify({"message": "Fallo al publicar.", "error": response.get('error')}), status_code
 
 

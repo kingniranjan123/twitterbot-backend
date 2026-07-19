@@ -94,10 +94,14 @@ def post_tweet(user_id, tweet_text, media_urls=None):
         
         if response.status_code == 200:
             data = response.json()
-            # Parse success
-            # TwitterAPI.io response format varies, assuming standard 'data' or 'id'
             print("TwitterAPI.io Response:", data)
             
+            # Check for API-level errors returned as 200 OK
+            if data.get("success") is False or data.get("status") == "error":
+                error_msg = data.get("error") or data.get("msg") or "Unknown API error"
+                print(f"❌ Error posting tweet: {error_msg}")
+                return {"error": f"Failed to post: {error_msg}"}, 400
+                
             # Try to extract ID
             tweet_id = data.get("data", {}).get("id")
             if not tweet_id:
