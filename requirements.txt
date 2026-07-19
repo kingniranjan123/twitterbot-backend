@@ -20,3 +20,6 @@ pytz
 langdetect
 pyotp
 openpyxl
+pytest
+pytest-playwright
+playwright

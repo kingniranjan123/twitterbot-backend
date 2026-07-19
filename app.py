@@ -7,6 +7,7 @@ from routes.monitored_users import monitored_bp
 from routes.tweets import tweets_bp
 from routes.scheduler import scheduler_bp
 from routes.api_health import api_health_bp
+from routes.testing import testing_bp
 from config import Config
 import threading
 import asyncio
@@ -55,6 +56,7 @@ app.register_blueprint(monitored_bp, url_prefix="/api")
 app.register_blueprint(tweets_bp, url_prefix="/tweets")
 app.register_blueprint(scheduler_bp, url_prefix="/api")
 app.register_blueprint(api_health_bp, url_prefix="/api")
+app.register_blueprint(testing_bp, url_prefix='/api')
 from routes.settings import settings_bp
 app.register_blueprint(settings_bp, url_prefix="/api")
 
