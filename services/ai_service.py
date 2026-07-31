@@ -449,7 +449,7 @@ def save_collected_tweet(user_id, source_type, source_value, tweet_id, tweet_tex
         event_description = f"Extracted tweet {tweet_id} using filter '{extraction_filter}'"
         event_query = f"""
         INSERT INTO logs (user_id, event_type, event_description, timestamp)
-        VALUES ({user_id}, 'EXTRACT', '{event_description.replace("'", "''")}', NOW())
+        VALUES ({user_id}, 'EXTRACT', '{event_description.replace("'", "''")}', CURRENT_TIMESTAMP)
         """
         run_query(event_query)
         print(f"📝 Event EXTRACT saved for tweet {tweet_id}.")

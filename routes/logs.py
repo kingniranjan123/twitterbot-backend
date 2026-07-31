@@ -71,7 +71,7 @@ def get_api_usage():
 def log_usage(api: str, count: int = 1):
     query = f"""
     INSERT INTO usage (api, requests, created_at)
-    VALUES ('{api.upper()}', {count}, NOW())
+    VALUES ('{api.upper()}', {count}, CURRENT_TIMESTAMP)
     """
     run_query(query)
 

@@ -106,7 +106,7 @@ def add_tweet():
     if len(tweet_text) > 280:
         return jsonify({"error": "El texto del tweet excede el límite de 280 caracteres"}), 400
 
-    query = f"INSERT INTO collected_tweets (user_id, tweet_id, source_value, tweet_text, created_at) VALUES ('{user_id}', {random.randint(10**17, 10**18 -1)},'', '{tweet_text}', NOW())"
+    query = f"INSERT INTO collected_tweets (user_id, tweet_id, source_value, tweet_text, created_at) VALUES ('{user_id}', {random.randint(10**17, 10**18 -1)},'', '{tweet_text}', CURRENT_TIMESTAMP)"
     run_query(query)
     return jsonify({"message": "Tweet agregado exitosamente"}), 201
 
@@ -317,7 +317,7 @@ def upload_tweets_for_user(user_id):
             try:
                 run_query(
                     f"INSERT INTO collected_tweets (user_id, tweet_id, source_value, tweet_text, created_at) "
-                    f"VALUES ({user_id}, '{tid}', '{src}', '{txt}', NOW()) ON CONFLICT DO NOTHING"
+                    f"VALUES ({user_id}, '{tid}', '{src}', '{txt}', CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING"
                 )
                 inserted += 1
             except Exception:

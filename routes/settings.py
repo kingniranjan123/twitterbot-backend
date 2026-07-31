@@ -35,7 +35,7 @@ def update_openai_config():
     safe_text = prompt_text.replace("'", "''")
     
     if check:
-        query = f"UPDATE openai_configs SET prompt_text='{safe_text}', updated_at=NOW() WHERE user_id='{user_id}' AND prompt_type='{prompt_type}'"
+        query = f"UPDATE openai_configs SET prompt_text='{safe_text}', updated_at=CURRENT_TIMESTAMP WHERE user_id='{user_id}' AND prompt_type='{prompt_type}'"
     else:
         query = f"INSERT INTO openai_configs (user_id, prompt_type, prompt_text) VALUES ('{user_id}', '{prompt_type}', '{safe_text}')"
         

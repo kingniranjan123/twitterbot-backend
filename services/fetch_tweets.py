@@ -214,7 +214,7 @@ async def count_tweets_for_user(user_id):
     query = f"""
     SELECT COUNT(*) FROM posted_tweets 
     WHERE user_id = {user_id}
-    AND created_at >= NOW() - INTERVAL '1 hour'
+    AND created_at >= datetime('now', '-1 hour')
     """
     result = run_query(query, fetchone=True)
     return result[0] if result else 0
@@ -224,7 +224,7 @@ async def count_tweets_for_user2(user_id):
     query = f"""
     SELECT COUNT(*) FROM collected_tweets 
     WHERE user_id = {user_id}
-    AND created_at >= NOW() - INTERVAL '1 hour'
+    AND created_at >= datetime('now', '-1 hour')
     """
     result = run_query(query, fetchone=True)
     return result[0] if result else 0
@@ -701,7 +701,7 @@ async def run_random_actions(session, user_id, usernames, action_type, limit, se
                 f"""
                 SELECT COUNT(*) FROM random_actions
                 WHERE user_id = '{user_id}' AND action_type = 'follow'
-                AND created_at >= NOW() - INTERVAL '1 hour'
+                AND created_at >= datetime('now', '-1 hour')
                 """,
                 fetchone=True
             )
@@ -784,7 +784,7 @@ async def run_random_actions(session, user_id, usernames, action_type, limit, se
                                         print(f"✅ Seguido @{username_to_follow} ({followers_count} seguidores)")
                                         run_query(f"""
                                             INSERT INTO random_actions (user_id, twitter_id, action_type, created_at)
-                                            VALUES ('{user_id}', '{username_to_follow}', 'follow', NOW())
+                                            VALUES ('{user_id}', '{username_to_follow}', 'follow', CURRENT_TIMESTAMP)
                                         """)
                                         count += 1
                                     else:
@@ -893,7 +893,7 @@ async def run_random_actions(session, user_id, usernames, action_type, limit, se
                                 count += 1
                                 insert_query = f"""
                                     INSERT INTO random_actions (user_id, twitter_id, action_type, created_at)
-                                    VALUES ('{user_id}', '{tweet_id}', '{action_type}', NOW())
+                                    VALUES ('{user_id}', '{tweet_id}', '{action_type}', CURRENT_TIMESTAMP)
                                 """
                                 run_query(insert_query)
                             else:
@@ -975,7 +975,7 @@ async def post_tweets_for_single_user(user_id, posting_event):
         f"""
         SELECT COUNT(*) FROM posted_tweets
         WHERE user_id = '{user_id}'
-          AND created_at >= date_trunc('day', NOW())
+          AND created_at >= date('now')
         """,
         fetchone=True,
     )
@@ -989,8 +989,8 @@ async def post_tweets_for_single_user(user_id, posting_event):
         f"""
         SELECT COUNT(*) FROM posted_tweets
         WHERE user_id = '{user_id}'
-          AND created_at >= (date_trunc('day', NOW()) + (floor(extract(hour from NOW())/6) * interval '6 hours'))
-          AND created_at <  (date_trunc('day', NOW()) + (floor(extract(hour from NOW())/6) * interval '6 hours') + interval '6 hours')
+          AND created_at >= datetime(date('now'), '+' || ((CAST(strftime('%H', 'now') AS INTEGER) / 6) * 6) || ' hours')
+          AND created_at <  datetime(date('now'), '+' || (((CAST(strftime('%H', 'now') AS INTEGER) / 6) * 6) + 6) || ' hours')
         """,
         fetchone=True,
     )
@@ -1028,7 +1028,7 @@ async def post_tweets_for_single_user(user_id, posting_event):
         SELECT MAX(created_at)
         FROM posted_tweets
         WHERE user_id = '{user_id}'
-          AND created_at >= (date_trunc('day', NOW()) + (floor(extract(hour from NOW())/6) * interval '6 hours'))
+          AND created_at >= datetime(date('now'), '+' || ((CAST(strftime('%H', 'now') AS INTEGER) / 6) * 6) || ' hours')
         """,
         fetchone=True,
     )
@@ -1065,7 +1065,7 @@ async def post_tweets_for_single_user(user_id, posting_event):
 
     response, status_code = post_tweet(user_id, tweet_text, media_urls=media_urls)
     if status_code == 200:
-        insert_query = f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{tweet_text}', NOW())"
+        insert_query = f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{tweet_text}', CURRENT_TIMESTAMP)"
         run_query(insert_query)
 
         print(f"✅ Tweet publicado y guardado en posted_tweets: {tweet_text[:50]}...")
@@ -1125,7 +1125,7 @@ async def post_tweets_for_user(session, user_id, tweets, posting_event, tweet_li
             response, status_code = post_tweet(user_id, tweet_text)
 
             if status_code == 200:
-                insert_query = f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{tweet_text}', NOW())"
+                insert_query = f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{tweet_text}', CURRENT_TIMESTAMP)"
                 run_query(insert_query)
                 print(f"✅ Tweet guardado en posted_tweets: {tweet_text[:50]}...")
                 
@@ -1503,7 +1503,7 @@ async def extract_from_drive_link(user_id, folder_id, drive_link):
 
         insert_processed = (
             f"INSERT INTO drive_media_processed (user_id, drive_link, base_name, created_at) "
-            f"VALUES ({user_id}, '{drive_link}', '{base_name}', NOW())"
+            f"VALUES ({user_id}, '{drive_link}', '{base_name}', CURRENT_TIMESTAMP)"
         )
         run_query(insert_processed)
 

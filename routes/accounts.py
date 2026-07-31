@@ -288,7 +288,7 @@ def get_accounts():
             LEFT JOIN (
                 SELECT user_id, COUNT(*) AS daily_posts
                 FROM posted_tweets
-                WHERE created_at >= date_trunc('day', NOW())
+                WHERE created_at >= date('now')
                 GROUP BY user_id
             ) pd ON u.id = pd.user_id
             LEFT JOIN (
@@ -794,7 +794,7 @@ def send_usage_email():
         today_query = """
         SELECT api, SUM(requests) as total_requests
         FROM usage
-        WHERE created_at >= NOW() - INTERVAL '24 hours'
+        WHERE created_at >= datetime('now', '-24 hours')
         GROUP BY api
         """
         results = run_query(today_query, fetchall=True)
@@ -895,7 +895,7 @@ def post_now(twitter_id):
     
     if status_code == 200:
         safe_tweet_text = tweet_text.replace("'", "''")
-        run_query(f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{safe_tweet_text}', NOW())")
+        run_query(f"INSERT INTO posted_tweets (user_id, tweet_text, created_at) VALUES ('{user_id}', '{safe_tweet_text}', CURRENT_TIMESTAMP)")
         run_query(f"DELETE FROM collected_tweets WHERE tweet_id = '{tweet_id}' AND user_id = '{user_id}'")
         run_query(f"DELETE FROM collected_media WHERE tweet_id = '{tweet_id}' AND user_id = '{user_id}'")
         
