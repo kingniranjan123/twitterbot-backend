@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, request
 from services.db_service import run_query
 import requests
-from supabase import create_client
 import base64
 from urllib.parse import urlparse
 import uuid
@@ -15,10 +14,7 @@ import resend
 accounts_bp = Blueprint("accounts", __name__)
 
 import os
-SUPABASE_URL = "https://srgkjdgxdzqxflleqkse.supabase.co"
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "") 
 BUCKET_NAME = "images"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 resend.api_key = "re_9hbEHRuy_KeEhu4QXqGb3SR7tMwN2PrBr" 
 
 def get_socialdata_api_key():
@@ -202,21 +198,18 @@ def update_user_profile(twitter_id):
             image_data = base64.b64decode(new_profile_pic_base64.split(",")[1])
             ext = new_profile_pic_base64.split(";")[0].split("/")[1]
             filename = f"{uuid.uuid4()}.{ext}"
-            upload_path = f"{twitter_id}/{filename}"
+            
+            import os
+            # Ensure upload dir exists
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads')
+            os.makedirs(upload_dir, exist_ok=True)
+            file_path = os.path.join(upload_dir, filename)
+            
+            with open(file_path, "wb") as f:
+                f.write(image_data)
 
-            upload_response = supabase.storage.from_(BUCKET_NAME).upload(
-                path=upload_path,
-                file=image_data,
-                file_options={"content-type": f"image/{ext}"}
-            )
-
-            if isinstance(upload_response, dict) and upload_response.get("error"):
-                return jsonify({
-                    "error": "Error uploading image to Supabase",
-                    "details": upload_response["error"]["message"]
-                }), 500
-
-            uploaded_file_url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET_NAME}/{upload_path}"
+            # Generate public URL for RapidAPI to download
+            uploaded_file_url = f"{request.host_url}static/uploads/{filename}"
 
             payload = {"image_url": uploaded_file_url}
             url = "https://twttrapi.p.rapidapi.com/update-profile-image"
@@ -269,11 +262,6 @@ def update_user_profile(twitter_id):
             WHERE twitter_id = '{twitter_id}'
             """
             run_query(update_query)
-
-        if uploaded_file_url:
-            parsed = urlparse(uploaded_file_url)
-            path_to_delete = parsed.path.replace(f"/storage/v1/object/public/{BUCKET_NAME}/", "")
-            supabase.storage.from_(BUCKET_NAME).remove([path_to_delete])
 
         return jsonify({
             "message": "Profile updated",

@@ -29,6 +29,10 @@ LANG_NAME_TO_CODE = {
 
 
 def get_openai_api_key():
+    import os
+    env_key = os.getenv("OPENROUTER_API_KEY")
+    if env_key:
+        return env_key
     query = "SELECT key FROM api_keys WHERE id = 1"
     result = run_query(query, fetchone=True)
     return result[0] if result else None  
@@ -99,8 +103,8 @@ def translate_text_with_openai(text, target_language, custom_style, user_id=None
         prompt = default_prompt
 
     models_to_try = [
-        "openai/gpt-5-mini",
-        "google/gemini-2.0-flash-001",                 
+        "openai/gpt-4o-mini",
+        "google/gemini-1.5-flash",
         "deepseek/deepseek-chat-v3-0324",
         "openai/gpt-4o-2024-11-20",
         "anthropic/claude-3.7-sonnet"
@@ -163,8 +167,8 @@ def generate_post_with_openai(tweet_text, target_language, user_id=None): # Adde
         prompt = default_prompt
 
     models_to_try = [
-        "openai/gpt-5-mini",
-        "google/gemini-2.0-flash-001",
+        "openai/gpt-4o-mini",
+        "google/gemini-1.5-flash",
         "deepseek/deepseek-chat-v3-0324",
         "openai/gpt-4o-2024-11-20",
         "anthropic/claude-3.7-sonnet"
@@ -225,8 +229,8 @@ def generate_reply_with_openai(tweet_text, target_language, user_id=None): # Add
         prompt = default_prompt
 
     models_to_try = [
-        "openai/gpt-5-mini",
-        "google/gemini-2.0-flash-001",
+        "openai/gpt-4o-mini",
+        "google/gemini-1.5-flash",
         "deepseek/deepseek-chat-v3-0324",
         "openai/gpt-4o-2024-11-20",
         "anthropic/claude-3.7-sonnet"
@@ -297,8 +301,8 @@ def is_duplicate_tweet(tweet_text, recent_texts, api_key, user_id=None): # Added
         prompt = default_prompt
 
     models_to_try = [
-        "google/gemini-2.0-flash-001",
-        "deepseek/deepseek-chat-v3-0324",
+        "openai/gpt-4o-mini",
+        "google/gemini-1.5-flash",
         "openai/gpt-4o-2024-11-20",
         "anthropic/claude-3.7-sonnet"
     ]

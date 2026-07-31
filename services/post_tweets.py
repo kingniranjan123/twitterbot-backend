@@ -4,7 +4,6 @@ import logging
 from routes.logs import log_usage
 import uuid
 from urllib.parse import urlparse
-from supabase import create_client
 import httpx
 import mimetypes
 import re
@@ -23,10 +22,6 @@ mimetypes.add_type("image/jpeg", ".jpg")
 mimetypes.add_type("image/gif", ".gif")
 
 import os
-SUPABASE_URL = "https://srgkjdgxdzqxflleqkse.supabase.co"
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
-BUCKET_NAME = "images"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def get_extraction_filter(user_id):
@@ -39,15 +34,6 @@ def get_twitterapi_key():
     query = "SELECT key FROM api_keys WHERE id = 5"
     result = run_query(query, fetchone=True)
     return result[0] if result else "6f60bb14a3ff43d59daf70cf2857d1c3"
-
-def delete_from_supabase(path):
-    try:
-        if not path:
-            return
-        supabase.storage.from_(BUCKET_NAME).remove([path])
-        print(f"🗑️ Archivo eliminado de Supabase: {path}")
-    except Exception as e:
-        print(f"⚠️ No se pudo borrar de Supabase: {e}")
 
 
 def post_tweet(user_id, tweet_text, media_urls=None):
