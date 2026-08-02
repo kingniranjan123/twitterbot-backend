@@ -252,6 +252,11 @@ def bulk_login():
 def relogin_account(twitter_id):
     """Re-login a specific account using stored credentials and 2FA secret."""
     import pyotp
+    import base64
+    
+    data = request.json or {}
+    provided_password = data.get("password")
+    
     user_row = run_query(
         f"SELECT username, password, twofa_secret FROM users WHERE twitter_id = '{twitter_id}'",
         fetchone=True
@@ -259,9 +264,26 @@ def relogin_account(twitter_id):
     if not user_row:
         return jsonify({"error": "Account not found"}), 404
 
-    username, password, twofa_secret = user_row
+    username, stored_password, twofa_secret = user_row
+    
+    # Try to decode stored password if it exists
+    decrypted_password = None
+    if stored_password:
+        try:
+            decrypted_password = base64.b64decode(stored_password.encode('utf-8')).decode('utf-8')
+        except Exception:
+            decrypted_password = stored_password # Fallback if it was saved in plain text
+
+    # Use provided password if stored is missing, or use decrypted stored password
+    password = provided_password if provided_password else decrypted_password
+
     if not username or not password:
-        return jsonify({"error": "No stored credentials for this account"}), 400
+        return jsonify({"error": "MISSING_PASSWORD", "message": "No stored credentials for this account"}), 400
+
+    # If password was provided dynamically, save it encrypted
+    if provided_password:
+        encrypted_pass = base64.b64encode(provided_password.encode('utf-8')).decode('utf-8')
+        run_query(f"UPDATE users SET password = '{encrypted_pass}' WHERE twitter_id = '{twitter_id}'")
 
     rapidapi_key = get_rapidapi_key()
     if not rapidapi_key:
