@@ -68,6 +68,25 @@ try:
 except Exception as e:
     print(f"[App] Could not start Smart Scheduler: {e}")
 
+# Start periodic alive check every 6 hours
+def alive_check_loop():
+    print("[App] Periodic Alive Check started (every 6 hours).")
+    from routes.accounts import check_accounts_alive
+    while True:
+        try:
+            with app.app_context():
+                print("[App] Running scheduled 6-hour alive check...")
+                check_accounts_alive()
+        except Exception as e:
+            print(f"[App] Error in periodic alive check: {e}")
+        time.sleep(6 * 60 * 60)
+
+try:
+    threading.Thread(target=alive_check_loop, daemon=True, name="alive-checker").start()
+except Exception as e:
+    print(f"[App] Could not start Alive Check Scheduler: {e}")
+
+
 @app.route("/")
 def home():
     return {"message": "Bienvenido a la API de Twitter Bot"}
